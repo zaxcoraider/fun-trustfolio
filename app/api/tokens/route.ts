@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createPublicClient, http, parseAbiItem, formatUnits } from 'viem';
+import { createPublicClient, http, parseAbiItem, formatUnits, type PublicClient } from 'viem';
 import { REPO_REGISTRY_ABI, BONDING_CURVE_ABI } from '@/lib/contracts';
 import { githubHeaders } from '@/lib/github';
 
@@ -55,7 +55,8 @@ async function fetchGitHubRepo(repoId: string) {
   return res.json();
 }
 
-async function fetchCurveData(client: ReturnType<typeof createPublicClient>, curveAddress: `0x${string}`) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function fetchCurveData(client: any, curveAddress: `0x${string}`) {
   try {
     const [spotPriceRaw, progress, graduated] = await Promise.all([
       client.readContract({ address: curveAddress, abi: BONDING_CURVE_ABI, functionName: 'getSpotPrice' }),

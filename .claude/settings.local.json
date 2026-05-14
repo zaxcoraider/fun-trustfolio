@@ -1,0 +1,37 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Get-ChildItem \"C:\\\\Users\\\\ASIF KHAN\\\\Desktop\\\\fun-trustfolio\" -Recurse -File | Where-Object { $_.FullName -notmatch 'node_modules|\\\\.next|\\\\.git' } | Select-Object -ExpandProperty FullName)",
+      "PowerShell(forge *)",
+      "PowerShell(winget install *)",
+      "PowerShell(forge install *)",
+      "PowerShell(forge build *)",
+      "PowerShell(forge test *)",
+      "Bash(git add *)",
+      "Bash(claude mcp *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(npm run *)",
+      "Bash(npx vercel *)",
+      "Bash(git stash *)",
+      "Bash(cat next.config.ts)",
+      "Bash(cat next.config.js)",
+      "Bash(cat next.config.mjs)",
+      "Bash(node -e \"const p = require\\('./package-lock.json'\\); console.log\\(p.packages['node_modules/viem']?.version\\)\")",
+      "mcp__zaxxie__zaxxie_network",
+      "mcp__zaxxie__zaxxie_get_docs",
+      "Bash(mkdir \"C:\\\\Users\\\\ASIF KHAN\\\\Desktop\\\\fun-trustfolio\\\\app\\\\api\\\\repo\\\\[repoId]\")",
+      "Bash(mkdir \"C:\\\\Users\\\\ASIF KHAN\\\\Desktop\\\\fun-trustfolio\\\\app\\\\repo\\\\[repoId]\")",
+      "Bash(npx tsc *)",
+      "Bash(npx next *)",
+      "Bash(npm install *)",
+      "Bash(node -e \"const sdk = require\\('@0gfoundation/0g-ts-sdk'\\); console.log\\(Object.keys\\(sdk\\).join\\(', '\\)\\)\")",
+      "Bash(node -e ' *)",
+      "Bash(node *)",
+      "mcp__zaxxie__zaxxie_preflight",
+      "Bash(forge *)",
+      "Bash(where forge *)",
+      "Read(//c/Users/ASIF KHAN/.foundry/**)"
+    ]
+  }
+}

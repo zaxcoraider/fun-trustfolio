@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { ethers } from 'ethers';
 import { generateNonce, verifyAndConsumeNonce } from '@/lib/nonce-store';
 import { fetchRepoById, githubHeaders } from '@/lib/github';
+import { issueVoucher, OWNER_ALLOCATION, CLAIM_TYPE_OWNER } from '@/lib/oracle';
 
 const GITHUB_API = 'https://api.github.com';
 
@@ -35,7 +36,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid or expired nonce' }, { status: 401 });
   }
 
-  // 2. Verify wallet signature
+  // 2. Verify wallet signature (proves user controls this wallet)
   const message = `fun.trustfolio owner verification\nrepoId: ${repoId}\nwallet: ${wallet.toLowerCase()}\nnonce: ${nonce}`;
   try {
     const recovered = ethers.verifyMessage(message, signature);
@@ -46,7 +47,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
   }
 
-  // 3. Fetch repo from repoId
+  // 3. Fetch repo from GitHub
   const repoData = await fetchRepoById(repoId);
   if (!repoData) {
     return NextResponse.json({ error: 'Repo not found' }, { status: 404 });
@@ -59,7 +60,7 @@ export async function POST(req: NextRequest) {
   );
   if (!fileRes.ok) {
     return NextResponse.json(
-      { error: 'trustfolio.json not found in repo root. Add it with { "wallet": "0x..." }' },
+      { error: 'trustfolio.json not found in repo root. Add { "wallet": "0x..." } to your repo.' },
       { status: 400 }
     );
   }
@@ -74,15 +75,31 @@ export async function POST(req: NextRequest) {
 
   if (!content.wallet || content.wallet.toLowerCase() !== wallet.toLowerCase()) {
     return NextResponse.json(
-      { error: 'Wallet in trustfolio.json does not match connected wallet' },
+      { error: 'Wallet in trustfolio.json does not match your connected wallet' },
       { status: 400 }
     );
   }
 
-  return NextResponse.json({
-    verified: true,
-    repoId,
-    wallet,
-    ownerLogin: repoData.owner.login,
-  });
+  // 5. Issue oracle-signed voucher — allows claimant to call ContributorClaim.claim() on-chain
+  try {
+    const voucher = await issueVoucher({
+      repoId,
+      claimant: wallet,
+      amount: OWNER_ALLOCATION,
+      claimType: CLAIM_TYPE_OWNER,
+    });
+
+    return NextResponse.json({
+      verified: true,
+      repoId,
+      wallet,
+      repoFullName: repoData.full_name,
+      ownerLogin: repoData.owner.login,
+      allocationTokens: OWNER_ALLOCATION.toString(),
+      voucher,
+    });
+  } catch (err) {
+    console.error('[verify-owner] oracle signing failed:', err);
+    return NextResponse.json({ error: 'Oracle signing failed. Check ORACLE_PRIVATE_KEY.' }, { status: 500 });
+  }
 }

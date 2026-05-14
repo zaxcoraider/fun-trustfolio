@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { ethers } from 'ethers';
 import { generateNonce, verifyAndConsumeNonce } from '@/lib/nonce-store';
 import { isBot, fetchRepoById, fetchContributors, githubHeaders } from '@/lib/github';
+import { issueVoucher, contributorAllocation, CLAIM_TYPE_CONTRIBUTOR } from '@/lib/oracle';
 
 const GITHUB_API = 'https://api.github.com';
 
@@ -31,7 +32,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
   }
 
-  // Validate githubLogin format (prevent injection / SSRF)
   if (!/^[a-zA-Z0-9-]+$/.test(githubLogin)) {
     return NextResponse.json({ error: 'Invalid GitHub username' }, { status: 400 });
   }
@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
   if (!fileRes.ok) {
     return NextResponse.json(
       {
-        error: `trustfolio.json not found at github.com/${githubLogin}/${githubLogin}. Create a profile repo and add it with { "wallet": "0x..." }`,
+        error: `trustfolio.json not found at github.com/${githubLogin}/${githubLogin}. Create your profile repo and add { "wallet": "0x..." }.`,
       },
       { status: 400 }
     );
@@ -76,23 +76,22 @@ export async function POST(req: NextRequest) {
 
   if (!content.wallet || content.wallet.toLowerCase() !== wallet.toLowerCase()) {
     return NextResponse.json(
-      { error: 'Wallet in trustfolio.json does not match connected wallet' },
+      { error: 'Wallet in trustfolio.json does not match your connected wallet' },
       { status: 400 }
     );
   }
 
-  // 4. Verify they actually contributed to this repo
+  // 4. Verify they actually contributed to this repo and compute their share
   const repoData = await fetchRepoById(repoId);
   if (!repoData) {
     return NextResponse.json({ error: 'Repo not found' }, { status: 404 });
   }
 
-  const contributors = await fetchContributors(repoData.full_name);
-  const match = (contributors as any[]).find(
-    (c: any) =>
-      c.login.toLowerCase() === githubLogin.toLowerCase() && !isBot(c)
-  );
+  const allContributors = await fetchContributors(repoData.full_name);
+  const eligible = (allContributors as { login: string; type: string; contributions: number; avatar_url: string }[])
+    .filter(c => !isBot(c));
 
+  const match = eligible.find(c => c.login.toLowerCase() === githubLogin.toLowerCase());
   if (!match) {
     return NextResponse.json(
       { error: `${githubLogin} is not an eligible contributor for this repo` },
@@ -100,11 +99,36 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  return NextResponse.json({
-    verified: true,
-    repoId,
-    githubLogin,
-    wallet,
-    contributions: match.contributions,
-  });
+  const totalCommits = eligible.reduce((s, c) => s + c.contributions, 0);
+  const amount = contributorAllocation(match.contributions, totalCommits);
+
+  if (amount === 0n) {
+    return NextResponse.json({ error: 'Allocation is zero — no tokens to claim' }, { status: 400 });
+  }
+
+  // 5. Issue oracle-signed voucher
+  try {
+    const voucher = await issueVoucher({
+      repoId,
+      claimant: wallet,
+      amount,
+      claimType: CLAIM_TYPE_CONTRIBUTOR,
+    });
+
+    return NextResponse.json({
+      verified: true,
+      repoId,
+      githubLogin,
+      wallet,
+      repoFullName: repoData.full_name,
+      contributions: match.contributions,
+      totalEligibleCommits: totalCommits,
+      allocationTokens: amount.toString(),
+      allocationPct: ((match.contributions / totalCommits) * 5).toFixed(4),
+      voucher,
+    });
+  } catch (err) {
+    console.error('[verify-contributor] oracle signing failed:', err);
+    return NextResponse.json({ error: 'Oracle signing failed. Check ORACLE_PRIVATE_KEY.' }, { status: 500 });
+  }
 }
