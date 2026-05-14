@@ -22,6 +22,9 @@ export function Navbar() {
           <Link href="/launch" className="font-mono text-sm text-gray-400 hover:text-white transition-colors">
             Launch
           </Link>
+          <Link href="/claim" className="font-mono text-sm text-gray-400 hover:text-white transition-colors">
+            Claim
+          </Link>
           <Link
             href="https://trustfolio.space"
             target="_blank"

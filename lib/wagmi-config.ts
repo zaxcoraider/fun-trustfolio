@@ -2,7 +2,6 @@
 
 import { defineChain } from 'viem';
 import { createConfig, http } from 'wagmi';
-import { mainnet } from 'wagmi/chains';
 import { connectorsForWallets } from '@rainbow-me/rainbowkit';
 import {
   metaMaskWallet,
@@ -57,12 +56,11 @@ const connectors = connectorsForWallets(
 );
 
 export const wagmiConfig = createConfig({
-  chains: [zgTestnet, zgMainnet, mainnet],
+  chains: [zgMainnet, zgTestnet],
   connectors,
   transports: {
-    [zgTestnet.id]: http('https://evmrpc-testnet.0g.ai'),
     [zgMainnet.id]: http('https://evmrpc.0g.ai'),
-    [mainnet.id]: http(),
+    [zgTestnet.id]: http('https://evmrpc-testnet.0g.ai'),
   },
   ssr: true,
 });
